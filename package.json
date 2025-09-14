@@ -5,7 +5,13 @@
   "license": "MIT",
   "scripts": {
     "start": "node src/app.js",
-    "dev": "nodemon src/app.js"
+    "dev": "nodemon src/app.js",
+    "redis:start": "brew services start redis",
+    "redis:stop": "brew services stop redis",
+    "redis:restart": "brew services restart redis",
+    "redis:status": "brew services list | grep redis",
+    "redis:ping": "redis-cli ping",
+    "dev:full": "yarn redis:start && yarn dev"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -17,7 +23,8 @@
     "express": "^5.1.0",
     "redis": "^5.8.2",
     "rss-parser": "^3.13.0",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
