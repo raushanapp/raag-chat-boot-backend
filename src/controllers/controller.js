@@ -1,26 +1,22 @@
 const express = require("express");
 const { v4: uuidv4 } = require("uuid");
 const { createRedisClient } = require("../services/redisService");
-
-
 //  Router s
 const router = express.Router();
-
 let redisClient;
-
 // Initialize Redis
 (async () => {
     redisClient = await createRedisClient();
 })();
 
 // create new session
-router.post("/session", (req, res) => {
+router.post("/chat/session", (req, res) => {
     const sessionId = uuidv4();
     res.json({ sessionId });
 });
 
 // Get chat history
-router.get("/history/:sessionId",async (req, res) => {
+router.get("/chat/history/:sessionId", async (req, res) => {
     try {
         const { sessionId } = req.params;
         // Check if Redis client is connected
@@ -44,10 +40,9 @@ router.get("/history/:sessionId",async (req, res) => {
         console.error('Error details:', error.message);
         res.status(500).json({ error: 'Failed to fetch chat history' });
     }
-})
-
+});
 //  clear Session
-router.delete("/session/:sessionId", async (req, res) => {
+router.delete("/chat/session/:sessionId", async (req, res) => {
     try {
         const { sessionId } = req.params;
         await redisClient.del(`chat:${sessionId}`);

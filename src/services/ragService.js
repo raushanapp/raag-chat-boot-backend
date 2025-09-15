@@ -7,7 +7,7 @@ class RagService{
     constructor() {
         this.qdrantClient = new QdrantClient({ url: process.env.QDRANT_URL,apiKey:process.env.QDRANT_API_KEY});
         this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        this.model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+        this.model = this.genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
         this.collectionName = "news_articles";
     }
 
@@ -15,9 +15,11 @@ class RagService{
         try {
             // Delete collection if it exists (for development)
             try {
-            
-                await this.qdrantClient.deleteCollection(this.collectionName);
-                console.log('Deleted existing collection');
+                //  check here Development 
+                if (process.env.NODE_ENV === "development") {
+                    await this.qdrantClient.deleteCollection(this.collectionName);
+                    console.log('Deleted existing collection');
+                }
             } catch (error) {
                 // Ignore if collection doesn't exist
             }
@@ -28,7 +30,6 @@ class RagService{
                     distance: "Cosine",
                 }
             });
-            // console.log('Qdrant collection initialized');
         } catch (error) {
             if (error.status === 409 || error.message?.includes("already exists") ||  error.data?.status?.error?.includes("already exists")) {
                 console.log('Qdrant collection already exists, skipping creation');
@@ -62,20 +63,41 @@ class RagService{
     }
     //  storing 
     async storeEmbedding(id, text, metadata) {
-        const embedding = await this.getEmbeddingText(text);
-        await this.qdrantClient.upsert(this.collectionName, {
-            points: [{
-                id: id,
-                vector: embedding,
-                payload: {
-                    text: text,
-                    ...metadata
-                }
-            }]
-        });
+        // const iso = new Date(Date.now()).toISOString();
+        try {
+            const embedding = await this.getEmbeddingText(text);
+            console.log(`Storing embedding for ID ${id}, vector length: ${embedding.length}`);
+            const result = await this.qdrantClient.upsert(this.collectionName, {
+                wait: true, //   Wait for operation to complete
+                points: [{
+                    id: id,
+                    vector: embedding,
+                    payload: {
+                        text: text,
+                        indexed_at:Date.now(),
+                        ...metadata
+                    }
+                }]
+            });
+            console.log(` Successfully stored point ${id}`);
+            return result;
+        } catch (error) {
+            console.error(`Failed to store embedding for ID ${id}:`, error);
+            throw error;
+        }
     };
     //  search query similar
     async searchSimilar(query, topK = 5) {
+        // Check if collection has data
+        const collectionInfo = await this.qdrantClient.getCollection(this.collectionName);
+        const pointCount = collectionInfo.points_count;
+        console.log(`Collection has ${pointCount} points`);
+        
+        if (pointCount === 0) {
+            console.log("Collection is empty - no documents to search");
+            return [];
+        }
+
         const queryEmbedding = await this.getEmbeddingText(query);
         const searchResult = await this.qdrantClient.search(this.collectionName, {
             vector: queryEmbedding,
@@ -89,8 +111,13 @@ class RagService{
         try {
             //  response data 
             const docs = await this.searchSimilar(query, 3);
-            if (docs.lenght === 0) {
-                return "I don't have enough information to answer that question. Please try asking about recent news topics.";
+            if (docs.length === 0) {
+                return {
+                    message: "I don't have enough information to answer that question. Please try asking about recent news topics.",
+                    timestamp: Date.now(),
+                    id: `msg_${Date.now()}`, // Add unique ID
+                    type: 'bot'
+                };
             }
             //  create context from retrived docs
             const context = docs.map((doc) => doc.text).join("\n\n");

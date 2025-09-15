@@ -74,7 +74,7 @@ GEMINI_API_KEY=your-google-gemini-api-key-here
 JINA_API_KEY=your-jina-ai-api-key-here
 QDRANT_URL=https://your-qdrant-cloud-url:6333
 QDRANT_API_KEY=your-qdrant-api-key-here
-FRONTEND_URL=http://localhost:3000
+FRONTEND_URL=http://localhost:5173
 ```
 ### Quick start
 
